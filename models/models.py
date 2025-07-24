@@ -1,7 +1,10 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, AbstractUser
 from django.core.validators import MinValueValidator
 from django.utils import timezone
+from django.conf import settings
+import random
+import string
 
 
 class PartUnified(models.Model):
@@ -74,7 +77,8 @@ class PartUnified(models.Model):
 
 
 class Cart(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def total_price(self):
@@ -96,12 +100,52 @@ class CartItem(models.Model):
         return f"{self.quantity} x {self.part.name}"
 
 
+
 class Order(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    POST_TYPE_CHOICES = (
+        ('post', 'ارسال به پست'),
+        ('tipax', 'تیپاکس'),
+        ('chapar', 'چاپار'),
+    )
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
     items = models.ManyToManyField(CartItem)
     total_price = models.PositiveIntegerField()
     created_at = models.DateTimeField(default=timezone.now)
 
+    post_type = models.CharField(max_length=10, choices=POST_TYPE_CHOICES, default='post')
+    delivery_date = models.DateField(null=True, blank=True)
+
+    order_code = models.CharField(max_length=10, unique=True, editable=False, default=0000000000)
+
     def __str__(self):
         return f"Order #{self.id} by {self.user.username}"
 
+    def generate_unique_code(self):
+        chars = string.ascii_uppercase + string.digits
+        while True:
+            code = ''.join(random.choices(chars, k=10))
+            if not Order.objects.filter(order_code=code).exists():
+                return code
+
+    def save(self, *args, **kwargs):
+        if not self.order_code:
+            self.order_code = self.generate_unique_code()
+        super().save(*args, **kwargs)
+
+
+# --------------------------------------------
+
+class Person(AbstractUser):
+    full_name = models.CharField(max_length=255)
+    phone_number = models.CharField(max_length=15)
+    email = models.EmailField(unique=True)
+    postal_code = models.CharField(max_length=20, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    REQUIRED_FIELDS = ['email', 'full_name', 'phone_number']
+
+    class Meta:
+        ordering = ['-created_at']

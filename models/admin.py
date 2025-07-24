@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import PartUnified, Cart, CartItem, Order
+from .models import PartUnified, Cart, CartItem, Order, Person
 
 
 @admin.register(PartUnified)
@@ -92,3 +92,12 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ('created_at',)
     search_fields = ('user__username',)
     filter_horizontal = ('items',)
+
+
+
+@admin.register(Person)
+class PersonAdmin(admin.ModelAdmin):
+    list_display = ('full_name', 'phone_number', 'email', 'postal_code', 'created_at')
+    search_fields = ('full_name', 'phone_number', 'email', 'postal_code')
+    list_filter = ('created_at',)
+    ordering = ('-created_at',)
