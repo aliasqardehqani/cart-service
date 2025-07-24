@@ -8,6 +8,10 @@ from .cart_service import CartService
 from rest_framework.pagination import PageNumberPagination
 import datetime
 
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
+
 def generate_invoice(order: Order) -> str:
     """
     Generate a simple invoice text for the given order.
@@ -167,21 +171,64 @@ class CreateOrderView(APIView):
             'post_type': request.data.get('post_type'),
             'delivery_date': delivery_date,
             'total_price': total_price,
-            'items': [item.pk for item in items]
+            'items': [item.pk for item in items],
+            'order_status': 'waiting'
         })
           
         if serializer.is_valid():
-            order = serializer.save()
+            serializer.save()
             cart.items.all().delete()
-            invoice_text = generate_invoice(order)
-            send_to_phone(user.phone_number, invoice_text)
 
             return Response({
                 'order': serializer.data,
-                'invoice': invoice_text
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class PaymentGatewayView(APIView):
+    def post(self, request):
+        order_code = request.data.get('order_code')
+        print(order_code)
+        return Response({"message": "success"}, status=status.HTTP_200_OK)
+
+class PaymentWebhookAPIView(APIView):
+    """
+    API view to handle payment gateway webhook callbacks.
+    Updates the order status based on payment result.
+    """
+
+    @method_decorator(csrf_exempt)
+    def dispatch(self, *args, **kwargs):
+        # Disable CSRF check for webhook endpoint
+        return super().dispatch(*args, **kwargs)
+
+    def post(self, request):
+        user = request.user
+        # Get the order ID from POST data sent by the payment gateway
+        order_code = request.data.get('order_code')
+        # Get the payment status from POST data, e.g. "success" or "failed"
+        payment_status = request.data.get('status')
+
+        # Retrieve the order object or return 404 if not found
+        order = get_object_or_404(Order, order_code=order_code)
+
+        # Update order status based on payment result
+        if payment_status == "success":
+            order.order_status = "paied"  # Note: spelling as per your choices
+            order.save()
+            # TODO: send confirmation email or SMS to the user 
+            invoice_text = generate_invoice(order)
+            # send_to_phone(user.phone_number, invoice_text)
+            content = {
+                'invoice': invoice_text
+            }
+        else:
+            order.order_status = "failed"
+            order.save()
+            content = {
+                'Message': 'Your payment is failed'
+            }
+        # Return simple HTTP 200 OK response to acknowledge webhook receipt
+        return Response(content, status=status.HTTP_200_OK)
 
 class DeleteCartItemView(APIView):
     """
