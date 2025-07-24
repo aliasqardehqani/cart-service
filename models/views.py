@@ -2,11 +2,44 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from django.shortcuts import get_object_or_404
-from .models import PartUnified, CartItem
-from .serializers import PartUnifiedSerializer, CartItemSerializer
+from .models import PartUnified, CartItem, Person, Order
+from .serializers import PartUnifiedSerializer, CartItemSerializer, OrderSerializer
 from .cart_service import CartService
 from rest_framework.pagination import PageNumberPagination
+import datetime
 
+def generate_invoice(order: Order) -> str:
+    """
+    Generate a simple invoice text for the given order.
+    """
+    lines = []
+    lines.append(f"فاکتور سفارش")
+    lines.append(f"کد سفارش: {order.order_code}")
+    lines.append(f"نام کاربر: {order.user.username}")
+    lines.append(f"تاریخ ایجاد سفارش: {order.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"نوع ارسال: {order.get_post_type_display()}")
+    lines.append(f"تاریخ تحویل: {order.delivery_date if order.delivery_date else 'تعریف نشده'}")
+    lines.append(f"مجموع قیمت: {order.total_price:,} تومان")
+    lines.append("")
+    lines.append("آیتم‌ها:")
+
+    for item in order.items.all():
+        part_name = item.part.name if hasattr(item, 'part') else "نامشخص"
+        quantity = item.quantity
+        price = item.part.price if hasattr(item, 'part') else 0
+        total_item_price = price * quantity
+        lines.append(f"- {part_name} | تعداد: {quantity} | قیمت واحد: {price:,} | قیمت کل: {total_item_price:,}")
+
+    lines.append("")
+    lines.append("با تشکر از خرید شما.")
+
+    return "\n".join(lines)
+
+def send_to_phone(phone, message):
+    print(message)
+
+def payment_gateway(phone):
+    return True
 
 class StandardResultsSetPagination(PageNumberPagination):
     # Default page size
@@ -84,19 +117,70 @@ class AddItemToCartView(APIView):
 
         return Response(response_data, status=200)
 
-class FinalizeOrderView(APIView):
+
+
+class CreateOrderView(APIView):
     """
-    Finalize the authenticated user's cart and create an order
-    Sends confirmation email on success
+    API endpoint for creating a new order from user's cart.
     """
-    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        user = request.user
+
+        # 1. Check if user has a saved Person info
+        person = Person.objects.filter(email=user.email).order_by('-created_at').first()
+        if not person:
+            return Response({'error': 'User info not found. Please complete your profile.'}, status=400)
+
+        # 2. Validate required fields
+        missing_fields = []
+        if not person.postal_code:
+            missing_fields.append("کد پستی ثبت نشده")
+        if not person.address:
+            missing_fields.append("آدرس ثبت نشده")
+        if not person.email:
+            missing_fields.append("ایمیل ثبت نشده")
+
+        if missing_fields:
+            return Response({'error': missing_fields}, status=400)
+
+        # 3. Get cart items
+        cart = CartService.get_or_create_cart(user)
+        items = cart.items.all()
+
+        if not items.exists():
+            return Response({'error': 'Your cart is empty.'}, status=400)
+
+        # 4. Parse delivery timestamp
         try:
-            order = CartService.finalize_order(request.user)
-            return Response({'status': 'success', 'order_id': order.id}, status=status.HTTP_200_OK)
-        except ValueError as e:
-            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            timestamp = int(request.data.get("delivery_date"))
+            delivery_date = datetime.datetime.fromtimestamp(timestamp).date()
+        except (TypeError, ValueError):
+            return Response({'error': 'Invalid delivery_date timestamp.'}, status=400)
+
+        # 5. Calculate total price
+        total_price = sum(item.part.price * item.quantity for item in items)
+
+        # 6. Prepare data for serializer (بدون ارسال items)
+        serializer = OrderSerializer(data={
+            'user': user.id,
+            'post_type': request.data.get('post_type'),
+            'delivery_date': delivery_date,
+            'total_price': total_price,
+            'items': [item.pk for item in items]
+        })
+          
+        if serializer.is_valid():
+            order = serializer.save()
+            cart.items.all().delete()
+            invoice_text = generate_invoice(order)
+            send_to_phone(user.phone_number, invoice_text)
+
+            return Response({
+                'order': serializer.data,
+                'invoice': invoice_text
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class DeleteCartItemView(APIView):

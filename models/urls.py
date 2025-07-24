@@ -2,10 +2,10 @@ from django.urls import path
 from .views import (
     PartUnifiedListView,
     AddItemToCartView,
-    FinalizeOrderView,
-    DeleteCartItemView, ClearCartView
+    CreateOrderView,
+    DeleteCartItemView, 
+    ClearCartView
 )
-from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns = [
     # Product API
@@ -14,7 +14,7 @@ urlpatterns = [
     # Cart API
     path('add/', AddItemToCartView.as_view(), name='cart-add'),
     path('list-cart/', AddItemToCartView.as_view(), name='cart-list'),
-    path('finalize/', FinalizeOrderView.as_view(), name='cart-finalize'),
+    path('orders/create/', CreateOrderView.as_view(), name='create-order'),
     path('delete/<int:item_id>/', DeleteCartItemView.as_view(), name='delete-cart-item'),
     path('clear/', ClearCartView.as_view(), name='clear-cart'),
 
