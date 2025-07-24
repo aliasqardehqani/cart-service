@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
-
+from django.core.validators import MinValueValidator
+from django.utils import timezone
 
 
 class PartUnified(models.Model):
@@ -26,7 +27,7 @@ class PartUnified(models.Model):
     internal_code = models.CharField(max_length=50)
     commercial_code = models.CharField(max_length=50)
     price = models.PositiveIntegerField()
-    cars = models.ManyToManyField('CarsModel', related_name="parts")
+    cars = models.TextField()
     description = models.TextField(blank=True, null=True)
 
     # PartCategory fields
@@ -67,3 +68,40 @@ class PartUnified(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.commercial_code} - Category: {self.category_title}"
+
+
+# -------------------------------------------
+
+
+class Cart(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def total_price(self):
+        return sum(item.total_price() for item in self.items.all())
+
+    def __str__(self):
+        return f"Cart for {self.user.username}"
+
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
+    part = models.ForeignKey(PartUnified, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+
+    def total_price(self):
+        return self.part.price * self.quantity
+
+    def __str__(self):
+        return f"{self.quantity} x {self.part.name}"
+
+
+class Order(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    items = models.ManyToManyField(CartItem)
+    total_price = models.PositiveIntegerField()
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Order #{self.id} by {self.user.username}"
+
