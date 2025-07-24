@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PartUnified
+from .models import PartUnified, CartItem
 
 class PartUnifiedSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,3 +10,10 @@ class PartUnifiedSerializer(serializers.ModelSerializer):
             'category_description', 'image_urls', 'part_type',
             'turnover', 'inventory'
         ]
+
+class CartItemSerializer(serializers.ModelSerializer):
+    part = PartUnifiedSerializer()
+
+    class Meta:
+        model = CartItem
+        fields = ['id', 'part', 'quantity']
