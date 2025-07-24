@@ -3,15 +3,19 @@ from .views import (
     PartUnifiedListView,
     AddItemToCartView,
     FinalizeOrderView,
+    DeleteCartItemView, ClearCartView
 )
 from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns = [
     # Product API
-    path('api/parts/', PartUnifiedListView.as_view(), name='part-list'),
+    path('parts/', PartUnifiedListView.as_view(), name='part-list'),
 
     # Cart API
-    path('api/cart/add/<int:part_id>/', AddItemToCartView.as_view(), name='cart-add'),
-    path('api/cart/finalize/', FinalizeOrderView.as_view(), name='cart-finalize'),
+    path('add/', AddItemToCartView.as_view(), name='cart-add'),
+    path('list-cart/', AddItemToCartView.as_view(), name='cart-list'),
+    path('finalize/', FinalizeOrderView.as_view(), name='cart-finalize'),
+    path('delete/<int:item_id>/', DeleteCartItemView.as_view(), name='delete-cart-item'),
+    path('clear/', ClearCartView.as_view(), name='clear-cart'),
 
 ]
