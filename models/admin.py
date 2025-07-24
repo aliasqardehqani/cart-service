@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import PartUnified
+from .models import PartUnified, Cart, CartItem, Order
+
 
 @admin.register(PartUnified)
 class PartUnifiedAdmin(admin.ModelAdmin):
@@ -54,3 +55,40 @@ class PartUnifiedAdmin(admin.ModelAdmin):
             return format_html(html)
         return "No Images"
     image_preview.short_description = "Image Preview"
+
+
+
+
+
+
+@admin.register(CartItem)
+class CartItemAdmin(admin.ModelAdmin):
+    list_display = ('id', 'cart', 'part', 'quantity', 'total_price')
+    list_filter = ('cart', 'part')
+    search_fields = ('part__name', 'cart__user__username')
+    raw_id_fields = ('cart', 'part')
+
+
+class CartItemInline(admin.TabularInline):
+    model = CartItem
+    extra = 0
+    readonly_fields = ('total_price',)
+
+
+@admin.register(Cart)
+class CartAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'created_at', 'total_price_display')
+    search_fields = ('user__username',)
+    inlines = [CartItemInline]
+
+    def total_price_display(self, obj):
+        return obj.total_price()
+    total_price_display.short_description = "Total Price"
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'total_price', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('user__username',)
+    filter_horizontal = ('items',)
