@@ -38,6 +38,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+
+    # RestFramework
+    'rest_framework',
+    'rest_framework.authtoken',
+    
     # Apps
     'models'
 ]
@@ -132,3 +137,14 @@ EMAIL_HOST_USER = 'aliasqar.dehqanii@gmail.com'
 EMAIL_HOST_PASSWORD = 'popefrancis'
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = 'popf3592@gmail.com'
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',  
+        'rest_framework.authentication.TokenAuthentication',    
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated', 
+    ]
+}

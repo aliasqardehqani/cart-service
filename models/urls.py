@@ -1,9 +1,17 @@
 from django.urls import path
-from .views import *
-
+from .views import (
+    PartUnifiedListView,
+    AddItemToCartView,
+    FinalizeOrderView,
+)
+from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns = [
-    path("add-to-cart/", add_item_to_cart, name="add-to-cart")
-    path("order-cart/", finalize_order, name="order-cart")
-]
+    # Product API
+    path('api/parts/', PartUnifiedListView.as_view(), name='part-list'),
 
+    # Cart API
+    path('api/cart/add/<int:part_id>/', AddItemToCartView.as_view(), name='cart-add'),
+    path('api/cart/finalize/', FinalizeOrderView.as_view(), name='cart-finalize'),
+
+]
