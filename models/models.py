@@ -107,7 +107,11 @@ class Order(models.Model):
         ('tipax', 'تیپاکس'),
         ('chapar', 'چاپار'),
     )
-
+    ORDER_STATUS = (
+        ('waiting', 'waiting'),
+        ('failed', 'failed'),
+        ('paied', 'paied'),
+    )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     items = models.ManyToManyField(CartItem)
@@ -118,6 +122,7 @@ class Order(models.Model):
     delivery_date = models.DateField(null=True, blank=True)
 
     order_code = models.CharField(max_length=10, unique=True, editable=False, default=0000000000)
+    order_status = models.CharField(max_length=10, choices=ORDER_STATUS, default='waiting')
 
     def __str__(self):
         return f"Order #{self.id} by {self.user.username}"
